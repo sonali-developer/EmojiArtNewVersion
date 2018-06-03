@@ -22,7 +22,7 @@ extension EmojiArt.EmojiInfo {
     }
 }
 
-class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScrollViewDelegate, UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout, UICollectionViewDragDelegate, UICollectionViewDropDelegate {
+class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScrollViewDelegate, UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout, UICollectionViewDragDelegate, UICollectionViewDropDelegate, UIPopoverPresentationControllerDelegate {
     
     // MARK: - Navigation
     
@@ -31,9 +31,28 @@ class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScr
             if let destination = segue.destination.contents as? DocumentInfoViewController {
                 document?.thumbnail = emojiArtView.snapshot
                 destination.document = document
+                if let ppc = destination.popoverPresentationController {
+                    ppc.delegate = self
+                }
             }
+        } else if segue.identifier == "Embed Document Info" {
+            embeddedDocInfo = segue.destination.contents as? DocumentInfoViewController
         }
     }
+    
+    private var embeddedDocInfo: DocumentInfoViewController?
+    
+    func adaptivePresentationStyle(for controller: UIPresentationController, traitCollection: UITraitCollection) -> UIModalPresentationStyle {
+        return UIModalPresentationStyle.none
+    }
+    
+    @IBAction func closeBySegue(bySegue: UIStoryboardSegue) {
+        close()
+    }
+    
+    @IBOutlet weak var embeddedDocInfoViewHeight: NSLayoutConstraint!    
+    @IBOutlet weak var embeddedDocInfoViewWidth: NSLayoutConstraint!
+    
     // MARK: - Model
     
     var emojiArt: EmojiArt? {
@@ -73,7 +92,7 @@ class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScr
     }
     
     
-    @IBAction func close(_ sender: UIBarButtonItem) {
+    @IBAction func close(_ sender: UIBarButtonItem? = nil) {
         if let observer = emojiArtViewObserver {
             NotificationCenter.default.removeObserver(observer)
         }
@@ -97,6 +116,11 @@ class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScr
         super.viewWillAppear(animated)
         documentObserver = NotificationCenter.default.addObserver(forName: Notification.Name.UIDocumentStateChanged, object: document, queue: OperationQueue.main, using: { (notification) in
             print("Document state changed to \(self.document!.documentState)")
+            if self.document!.documentState == .normal, let docInfoVC = self.embeddedDocInfo {
+                docInfoVC.document = self.document
+                self.embeddedDocInfoViewWidth.constant = docInfoVC.preferredContentSize.width
+                self.embeddedDocInfoViewHeight.constant = docInfoVC.preferredContentSize.height
+            }
         })
         document?.open() { success in
             if success {
